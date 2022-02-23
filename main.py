@@ -1,15 +1,11 @@
 import glob
 import json
 import os
-import shutil
-from datetime import datetime
-
 import aiohttp
 import disnake
 from disnake.ext import commands
 from configparser import ConfigParser
 import requests
-from disnake.webhook.async_ import AsyncWebhookAdapter
 
 intents = disnake.Intents.default()
 intents.guilds = True
@@ -84,7 +80,7 @@ async def webhookManager(channelID: int, author, embed, files):
         async with aiohttp.ClientSession() as session:
             if not webhook_url:
                 channel = bot.get_channel(channelID)
-                webhook = await channel.create_webhook(name="Pinboard-Generated Webhook")
+                webhook = await channel.create_webhook(name="Bulletin-Board-Generated Webhook")
                 setConfigItem('WEBHOOKS', str(channelID), webhook.url)
             else:
                 webhook = disnake.Webhook.from_url(webhook_url, session=session)
@@ -97,12 +93,12 @@ async def webhookManager(channelID: int, author, embed, files):
 @bot.slash_command(description="Registers a Channel as the default Bulletin Channel", name='SetDefaultBulletin',
                    guild_ids=guilds)
 @commands.has_permissions(manage_messages=True)
-async def defaultchannel(inter, pinboard_channel: disnake.abc.GuildChannel):
-    setConfigItem('DEFAULT', 'defaultbulletinchannel', str(pinboard_channel.id))
+async def defaultchannel(inter, bulletin_channel: disnake.abc.GuildChannel):
+    setConfigItem('DEFAULT', 'defaultbulletinchannel', str(bulletin_channel.id))
     await inter.response.send_message(
-        f"Channel {pinboard_channel.mention} has been registered as the default Bulletin Board channel.",
+        f"Channel {bulletin_channel.mention} has been registered as the default Bulletin Board channel.",
         ephemeral=True)
-    await log(f"{inter.author} has set {pinboard_channel.mention} as the default Bulletin Board Channel.")
+    await log(f"{inter.author} has set {bulletin_channel.mention} as the default Bulletin Board Channel.")
 
 
 @bot.slash_command(description="Sets the channel where changes are logged.", name='setLoggingChannel', guild_ids=guilds)
@@ -125,7 +121,34 @@ async def logger(inter, logging_channel: disnake.abc.GuildChannel):
                    guild_ids=guilds)
 @commands.has_permissions(manage_messages=True)
 async def register(inter, channel: disnake.abc.GuildChannel, to_bulletin_channel: disnake.abc.GuildChannel = None):
+
+    defaultbulletin = getConfigItem("DEFAULT", "defaultbulletinchannel")
+
+    chID = channel.id
+    remove = False
+    listChannels = getAllConfigItems("MONITORED_CHANNELS")
+    for i, unused in listChannels:
+        if int(i) == chID:
+            remove = True
+
+    if remove:
+        removeConfigItem("MONITORED_CHANNELS", str(chID))
+        await inter.response.send_message(f"Channel {channel.mention} has been removed from pin monitoring.", ephemeral=True)
+        await log(f'{inter.author.name} has removed {channel.mention} from pin monitoring.')
+        return
+
+    try:
+        testcase = await channel.pins()
+    except Exception as e:
+        await inter.response.send_message("The bot does not appear to have access to that channel to monitor its pins! Please check the permissions and try again.", ephemeral=True)
+        return
+
     if not to_bulletin_channel:
+
+        if int(defaultbulletin) == 0:
+            await inter.response.send_message("This server does not have a default bulletin channel setup! Please set a channel as default by doing `/setdefaultbulletin <channel>` or by specifying what channel you want to divert overflow pins to!", ephemeral=True)
+            return
+
         await log(
             f"{inter.author} registered channel {channel.mention}'s overflow pins to be posted to the Default Bulletin Board.")
         line = 'the Default Bulletin Board'
@@ -136,7 +159,7 @@ async def register(inter, channel: disnake.abc.GuildChannel, to_bulletin_channel
         line = f'{to_bulletin_channel.mention}'
         to_bulletin_channel = str(to_bulletin_channel.id)
     setConfigItem('MONITORED_CHANNELS', str(channel.id), to_bulletin_channel)
-    await inter.response.send_message(f"Overflow Pins in {channel.mention} will now be sent to {line}")
+    await inter.response.send_message(f"Overflow Pins in {channel.mention} will now be sent to {line}", ephemeral=True)
 
 
 @bot.slash_command(description="Lists all of the locked pins in a channel.", name='list', guild_ids=guilds)
@@ -196,12 +219,15 @@ async def padlock(inter, message: disnake.Message):
         await log(f"{inter.author.name} removed a message from the Locked Pins in {message.channel.mention}")
 
 
-#@bot.listen()
-#async def on_slash_command_error(ctx, error):
-#    if isinstance(error.original, disnake.ext.commands.MessageNotFound):
-#        await ctx.send("That isn't a valid message!", ephemeral=True)
-#        return
-#    await ctx.send(error, ephemeral=True)
+@bot.listen()
+async def on_slash_command_error(ctx, error):
+    if isinstance(error.original, disnake.ext.commands.MessageNotFound):
+        await ctx.send("That isn't a valid message!", ephemeral=True)
+        return
+    if isinstance(error.original, disnake.ext.commands.ChannelNotReadable):
+        await ctx.send("The bot can't read the specified channel! Please check the permissions and try again!", ephemeral=True)
+        return
+    await ctx.send(error, ephemeral=True)
 
 
 def JsonHandler(channelid, action, data=None):
