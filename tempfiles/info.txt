@@ -1,0 +1,2 @@
+This folder stores files downloaded and reuploaded for Discord.
+Currently the bot assumes you have the Full Boost 100MB Maximum Filesize and will not work without it.

@@ -1,0 +1,2 @@
+This folder stores information on every pinned message on every channel. Channels are added to this list whenever there is a pin update.
+This is used to determine whether a pin is added or removed from a channel, as well as to determine whether the top pin is a locked pin or not.
