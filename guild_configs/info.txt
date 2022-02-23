@@ -1,0 +1,2 @@
+This stores the config for each server (guild) allowing
+multiple-server support.
