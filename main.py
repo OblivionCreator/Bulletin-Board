@@ -18,6 +18,8 @@ import errno
 import glob
 import json
 import os
+import warnings
+
 import aiohttp
 import disnake
 from disnake.ext import commands
@@ -28,9 +30,9 @@ intents = disnake.Intents.default()
 intents.guilds = True
 bot = commands.Bot(command_prefix='unused',
                    allowed_mentions=disnake.AllowedMentions(users=False, everyone=False, roles=False,
-                                                            replied_user=False), intents=intents)
+                                                            replied_user=False), intents=intents) # Creates Bot Object, disallows bot from pinging any users and gets .guild() intent.
 bot.remove_command('help')
-guilds = [770428394918641694, 945920044557299732]
+guilds = None # Allowed Guilds. Set to 'None' to make commands Global, or set to [<guild_id>] to set on a per-server basis. Commands may take 1-2 hours to register Globally.
 
 
 def loadConfig(guild):
@@ -41,7 +43,7 @@ def loadConfig(guild):
             config['MONITORED_CHANNELS'] = {}
             config['WEBHOOKS'] = {}
             config['MONITORED_MESSAGES'] = {}
-            config.write(file)
+            config.write(file) # If no config exists, creates a new config for that guild when it is first loaded. DefaultBulletinChannel and Logging set to 0 by default.
     except:
         pass
     config.read(f'guild_configs/{guild}_config.ini')
@@ -49,18 +51,18 @@ def loadConfig(guild):
 
 def removeConfigItem(section, item, guild):
     config = loadConfig(guild)
-    with open('guild_configs/info.txt', 'w') as file:
+    with open(f'guild_configs/{guild}_config.ini', 'w') as file:
         config.remove_option(section, item)
-        config.write(file)
+        config.write(file) # Removes an item from the guild's config.ini file.
 
 def getConfigItem(section, item, guild):
     config = loadConfig(guild)
     return config.get(section, item)
-
+    # Returns item from guild's config.ini
 
 def getAllConfigItems(section, guild):
     config = loadConfig(guild)
-    filtered_items = [x for x in config.items(section) if x[0] not in config.defaults()]
+    filtered_items = [x for x in config.items(section) if x[0] not in config.defaults()] # Filters out items from [DEFAULT] when returning all items under a section.
     return filtered_items
 
 
@@ -68,7 +70,7 @@ def setConfigItem(section, item, value, guild):
     config = loadConfig(guild)
     config.set(section, item, value)
     config.write(open(f'guild_configs/{guild}_config.ini', 'w'))
-    return True
+    return True # Sets a config item and then returns True if successful.
 
 
 async def log(item, guild):
@@ -77,33 +79,37 @@ async def log(item, guild):
         try:
             await logChannel.send(item)
         except Exception as e:
+            guildObj = bot.get_guild(guild)
+            warnings.warn(f"Tried logging a message in Server {guildObj.name}, however the bot encountered an error:\n{e}\nData to be logged: {item}")
             return False
-
+# Tries to get a Logging Channel for the guild. If there is no logging channel or it is unable to find one (i.e it has been deleted), returns gives a warning and returns false.
 
 async def getBulletinChannel(guild):
     bulletinChannel = await bot.get_channel(int(getConfigItem('DEFAULT', 'defaultbulletinchannel')), guild)
     return bulletinChannel
-
+# Gets the bulletinChannel of a server. Returns 'None' if channel is not found.
 
 async def webhookManager(channelID: int, author, embed, files, guild):
-    webhooks = getAllConfigItems('WEBHOOKS', guild)
+    webhooks = getAllConfigItems('WEBHOOKS', guild) # Gets all stored webhook URLs for a guild.
     webhook_url = None
     for w, x in webhooks:
-        if int(w) == channelID:
+        if int(w) == channelID: # Checks if the channel ID has a webhook, if so sets the webhook_url.
             webhook_url = x
 
-    try:
-        async with aiohttp.ClientSession() as session:
-            if not webhook_url:
-                channel = bot.get_channel(channelID)
-                webhook = await channel.create_webhook(name="Bulletin-Board-Generated Webhook")
-                setConfigItem('WEBHOOKS', str(channelID), webhook.url, guild)
-            else:
-                webhook = disnake.Webhook.from_url(webhook_url, session=session)
-
+    async with aiohttp.ClientSession() as session: # Opens a session to create a webhook.
+        if webhook_url:
+            webhook = disnake.Webhook.from_url(webhook_url, session=session) # Gets the existing webhook if it already exists.
+            try:
+                await webhook.send(embed=embed, files=files, username=author.name, avatar_url=author.display_avatar)
+                return
+            except disnake.NotFound as nf:
+                webhook_url = False
+        if not webhook_url:
+            channel = bot.get_channel(channelID)
+            webhook = await channel.create_webhook(name="Bulletin-Board-Generated Webhook") # Generates the webhook and stores the webhook item if no webhook is found.
+            setConfigItem('WEBHOOKS', str(channelID), webhook.url, guild)
             await webhook.send(embed=embed, files=files, username=author.name, avatar_url=author.display_avatar)
-    except Exception as e:
-        print(e)
+            return
 
 
 @bot.slash_command(description="Registers a Channel as the default Bulletin Channel", name='SetDefaultBulletin',
@@ -150,9 +156,9 @@ async def register(inter, channel: disnake.abc.GuildChannel, to_bulletin_channel
             remove = True
 
     if remove:
-        removeConfigItem("MONITORED_CHANNELS", str(chID))
+        removeConfigItem("MONITORED_CHANNELS", str(chID), guild=guild)
         await inter.response.send_message(f"Channel {channel.mention} has been removed from pin monitoring.", ephemeral=True)
-        await log(f'{inter.author.name} has removed {channel.mention} from pin monitoring.')
+        await log(f'{inter.author.name} has removed {channel.mention} from pin monitoring.', guild)
         return
 
     try:
@@ -313,15 +319,21 @@ async def on_guild_channel_pins_update(channel, last_pin):
     if channel.id in monitoredChannels:
         pinList = await channel.pins()
         if len(pinList) >= 50:
-            oldest_pin = pinList[len(pinList) - 1]
+            oldest_pin = pinList[len(pinList) - 1] # Gets the last pin (oldest) Message.
             author = oldest_pin.author
             channel = oldest_pin.channel
-            pbChannel = getConfigItem('MONITORED_CHANNELS', str(channel.id), guild=guild)
+            pbChannel = getConfigItem('MONITORED_CHANNELS', str(channel.id), guild=guild) # Returns the Bulletin Board channel. If
+
             attachments = oldest_pin.attachments
             if pbChannel == '':
                 pbChannel = bot.get_channel(int(getConfigItem("DEFAULT", "defaultbulletinchannel", guild=guild)))
             else:
                 pbChannel = bot.get_channel(int(pbChannel))
+
+            if pbChannel is None:
+                await log("The Bulletin Board Channel has been deleted or cannot be accessed by the bot! Please verify the channel exists and the Bot has permissions to access it. The bot will not function correctly.\nIf the channel does not exist, please set one using `/setdefaultbulletin`", guild)
+                return
+
             embed = disnake.Embed(color=0xe100e1, title=f'{author}:', description=f'{oldest_pin.content}',
                                   url=oldest_pin.jump_url)
             old_time = oldest_pin.created_at
