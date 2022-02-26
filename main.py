@@ -197,7 +197,7 @@ async def listItems(inter, channel:disnake.abc.GuildChannel):
             msgList.append(int(msg))
 
     if len(msgList) == 0:
-        await inter.response.send_message("There are no locked pins in this channel!")
+        await inter.response.send_message("There are no locked pins in this channel!", ephemeral=True)
         return
 
     messageListURL = []
