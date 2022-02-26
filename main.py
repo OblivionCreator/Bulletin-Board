@@ -39,7 +39,7 @@ def loadConfig(guild):
     config = ConfigParser()
     try:
         with open(f'guild_configs/{guild}_config.ini', 'x') as file:
-            config['DEFAULT'] = {'defaultbulletinchannel': 0, 'logging': 0}
+            config['GENERIC'] = {'defaultbulletinchannel': 0, 'logging': 0}
             config['MONITORED_CHANNELS'] = {}
             config['WEBHOOKS'] = {}
             config['MONITORED_MESSAGES'] = {}
@@ -62,8 +62,8 @@ def getConfigItem(section, item, guild):
 
 def getAllConfigItems(section, guild):
     config = loadConfig(guild)
-    filtered_items = [x for x in config.items(section) if x[0] not in config.defaults()] # Filters out items from [DEFAULT] when returning all items under a section.
-    return filtered_items
+    items = list(config.items(section))
+    return items
 
 
 def setConfigItem(section, item, value, guild):
@@ -74,7 +74,7 @@ def setConfigItem(section, item, value, guild):
 
 
 async def log(item, guild):
-    logChannel = bot.get_channel(int(getConfigItem('DEFAULT', 'logging', guild)))
+    logChannel = bot.get_channel(int(getConfigItem('GENERIC', 'logging', guild)))
     if logChannel is not None:
         try:
             await logChannel.send(item)
@@ -85,7 +85,7 @@ async def log(item, guild):
 # Tries to get a Logging Channel for the guild. If there is no logging channel or it is unable to find one (i.e it has been deleted), returns gives a warning and returns false.
 
 async def getBulletinChannel(guild):
-    bulletinChannel = await bot.get_channel(int(getConfigItem('DEFAULT', 'defaultbulletinchannel')), guild)
+    bulletinChannel = await bot.get_channel(int(getConfigItem('GENERIC', 'defaultbulletinchannel')), guild)
     return bulletinChannel
 # Gets the bulletinChannel of a server. Returns 'None' if channel is not found.
 
@@ -117,7 +117,7 @@ async def webhookManager(channelID: int, author, embed, files, guild):
 @commands.has_permissions(manage_messages=True)
 async def defaultchannel(inter, bulletin_channel: disnake.abc.GuildChannel):
     guild = inter.guild_id
-    setConfigItem('DEFAULT', 'defaultbulletinchannel', str(bulletin_channel.id), guild)
+    setConfigItem('GENERIC', 'defaultbulletinchannel', str(bulletin_channel.id), guild)
     await inter.response.send_message(
         f"Channel {bulletin_channel.mention} has been registered as the default Bulletin Board channel.",
         ephemeral=True)
@@ -136,7 +136,7 @@ async def logger(inter, logging_channel: disnake.abc.GuildChannel):
             ephemeral=True)
         return
     await log(f"{inter.author} has set {logging_channel.mention} for all future bot logs.", guild)
-    setConfigItem('DEFAULT', 'logging', str(logging_channel.id), guild)
+    setConfigItem('GENERIC', 'logging', str(logging_channel.id), guild)
     await inter.response.send_message(
         f"Channel {logging_channel.mention} has been set as the default channel for all bot logs.", ephemeral=True)
 
@@ -146,7 +146,7 @@ async def logger(inter, logging_channel: disnake.abc.GuildChannel):
 @commands.has_permissions(manage_messages=True)
 async def register(inter, channel: disnake.abc.GuildChannel, to_bulletin_channel: disnake.abc.GuildChannel = None):
     guild = inter.guild_id
-    defaultbulletin = getConfigItem("DEFAULT", "defaultbulletinchannel", guild)
+    defaultbulletin = getConfigItem("GENERIC", "defaultbulletinchannel", guild)
 
     chID = channel.id
     remove = False
@@ -278,14 +278,7 @@ def JsonHandler(channelid, action, data=None, guild=None):
             return []
 
 
-@bot.listen()
-async def on_guild_channel_pins_update(channel, last_pin):
-    guild = channel.guild.id
-    storedPins = JsonHandler(channel.id, 'get', guild=guild)
-    currentPins = await channel.pins()
-    cPinIDs = []
-    for p in currentPins:
-        cPinIDs.append(p.id)
+async def new_pins(channel, guild, cPinIDs, storedPins, currentPins):
 
     if len(storedPins) > len(currentPins):
         JsonHandler(channel.id, 'set', cPinIDs, guild=guild)
@@ -310,6 +303,18 @@ async def on_guild_channel_pins_update(channel, last_pin):
     else:
         pass
 
+
+@bot.listen()
+async def on_guild_channel_pins_update(channel, last_pin):
+    guild = channel.guild.id
+    storedPins = JsonHandler(channel.id, 'get', guild=guild)
+    currentPins = await channel.pins()
+    cPinIDs = []
+    for p in currentPins:
+        cPinIDs.append(p.id)
+
+    await new_pins(channel, guild, cPinIDs, storedPins, currentPins)
+
     JsonHandler(channel.id, 'set', cPinIDs, guild)
 
     monitorList = getAllConfigItems('MONITORED_CHANNELS', guild=guild)
@@ -327,7 +332,7 @@ async def on_guild_channel_pins_update(channel, last_pin):
 
             attachments = oldest_pin.attachments
             if pbChannel == '':
-                pbChannel = bot.get_channel(int(getConfigItem("DEFAULT", "defaultbulletinchannel", guild=guild)))
+                pbChannel = bot.get_channel(int(getConfigItem("GENERIC", "defaultbulletinchannel", guild=guild)))
             else:
                 pbChannel = bot.get_channel(int(pbChannel))
 
