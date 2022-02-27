@@ -384,7 +384,7 @@ async def on_guild_channel_pins_update(channel, last_pin):
 
     if channel.id in monitoredChannels:
         pinList = await channel.pins()
-        if len(pinList) >= 10:
+        if len(pinList) >= 50:
             oldest_pin = pinList[len(pinList) - 1]  # Gets the last pin (oldest) Message.
             author = oldest_pin.author
             channel = oldest_pin.channel
