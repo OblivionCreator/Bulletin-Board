@@ -371,7 +371,7 @@ async def on_guild_channel_pins_update(channel, last_pin):
     try:
         currentPins = await channel.pins()
     except disnake.errors.Forbidden:
-        print("Recieved a pin update but no permission to view the channel!")
+        print("Recieved a pin update but no permission to view the channel! Guild:", channel.guild)
         return
     cPinIDs = []
     for p in currentPins:
