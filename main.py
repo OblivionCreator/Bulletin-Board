@@ -368,7 +368,11 @@ async def new_pins(channel, guild, cPinIDs, storedPins, currentPins):
 async def on_guild_channel_pins_update(channel, last_pin):
     guild = channel.guild.id
     storedPins = JsonHandler(channel.id, 'get', guild=guild)
-    currentPins = await channel.pins()
+    try:
+        currentPins = await channel.pins()
+    except disnake.errors.Forbidden:
+        print("Recieved a pin update but no permission to view the channel!")
+        return
     cPinIDs = []
     for p in currentPins:
         cPinIDs.append(p.id)
