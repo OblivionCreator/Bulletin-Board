@@ -412,7 +412,7 @@ async def on_guild_channel_pins_update(channel, last_pin):
             old_time = oldest_pin.created_at
             strf_old = old_time.strftime("%B %d, %Y")
             embed.set_thumbnail(author.display_avatar)
-            embed.set_footer(text=f"Sent by {author} on {strf_old}")
+            embed.set_footer(text=f"Sent by {author} on {strf_old} in #{channel.name}")
 
             # Attachments - Downloads attachments to tempfiles, uploads them then deletes them.
 
