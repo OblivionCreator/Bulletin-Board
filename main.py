@@ -256,7 +256,7 @@ async def listItems(inter, channel: disnake.abc.GuildChannel):
     for mu in messageListURL:
         urlString = f'{urlString}{mu}\n'
     urlString.rstrip()
-    await inter.response.send_message(f"Here are all the Locked Pins in {channel.mention}:\n{urlString}")
+    await inter.response.send_message(f"Here are all the Locked Pins in {channel.mention}:\n{urlString}", ephemeral=True)
 
 
 @bot.slash_command(description='Adds or removes a message from the Locked Pins.', name='lock', guild_ids=guilds)
@@ -307,7 +307,7 @@ async def help_command(inter, command:str = ''):
     elif command == '':
         await inter.response.send_message("To view help information regarding a command, do /help <command>. All commands are using Discord's new Slash Commands. If you have any issues, please report them on the GitHub page at: <https://github.com/OblivionCreator/Bulletin-Board>\nAvailable commands:\n`SetLoggingChannel\nSetDefaultBulletin\nRegister\nLock\nList`", ephemeral=True)
     else:
-        await inter.response.send_message("Sorry, I don't recognise that command. Valid commands:\n`SetLoggingChannel\nSetDefaultBulletin\nRegister\nLock\nList`")
+        await inter.response.send_message("Sorry, I don't recognise that command. Valid commands:\n`SetLoggingChannel\nSetDefaultBulletin\nRegister\nLock\nList`", ephemeral=True)
 @bot.listen()
 async def on_slash_command_error(ctx, error):
     if isinstance(error.original, disnake.ext.commands.MessageNotFound):
