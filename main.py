@@ -30,6 +30,7 @@ activity = disnake.Activity(type=disnake.Game(name='test'))
 
 intents = disnake.Intents.default()
 intents.guilds = True
+intents.message_content = True
 bot = commands.Bot(command_prefix='unused',
                    allowed_mentions=disnake.AllowedMentions(users=False, everyone=False, roles=False,
                                                             replied_user=False),
