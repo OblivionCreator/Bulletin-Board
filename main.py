@@ -26,8 +26,6 @@ from disnake.ext import commands
 from configparser import ConfigParser
 import requests
 
-activity = disnake.Activity(type=disnake.Game(name='test'))
-
 intents = disnake.Intents.default()
 intents.guilds = True
 bot = commands.Bot(command_prefix='unused',
@@ -35,7 +33,7 @@ bot = commands.Bot(command_prefix='unused',
                                                             replied_user=False),
                    intents=intents)  # Creates Bot Object, disallows bot from pinging any users and gets .guild() intent.
 bot.remove_command('help')
-guilds = None  # Allowed Guilds. Set to 'None' to make commands Global, or set to [<guild_id>] to set on a per-server basis. Commands may take 1-2 hours to register Globally.
+guilds = []  # Allowed Guilds. Set to 'None' to make commands Global, or set to [<guild_id>] to set on a per-server basis. Commands may take 1-2 hours to register Globally.
 
 
 def loadConfig(guild):
@@ -134,11 +132,12 @@ async def webhookManager(channelID: int, author, embed, files, guild, fileURL):
                 await webhook.send(embed=embed, files=files, username=author.name, avatar_url=author.display_avatar)
             except Exception as e:
                 content = ''
-                if len(fileURL)>0:
+                if len(fileURL) > 0:
                     for url in fileURL:
                         content = f'{content}\n{url}'
 
-                await webhook.send(content.rstrip(), embed=embed, username=author.name, avatar_url=author.display_avatar)
+                await webhook.send(content.rstrip(), embed=embed, username=author.name,
+                                   avatar_url=author.display_avatar)
             return
 
 
@@ -170,12 +169,14 @@ async def logger(inter, logging_channel: disnake.abc.GuildChannel):
     await inter.response.send_message(
         f"Channel {logging_channel.mention} has been set as the default channel for all bot logs.", ephemeral=True)
 
+
 @bot.slash_command(descrpition="Removes the logging channel.", name='disablelogging', guild_ids=guilds)
 @commands.has_permissions(manage_messages=True)
 async def dis_logging(inter):
     guild = inter.guild_id
     setConfigItem('GENERIC', 'logging', str(0), guild)
     await inter.response.send_message("Bot Logging is now disabled.")
+
 
 @bot.slash_command(description="Sets a command to be monitored for Bulletin Board Pins", name='register',
                    guild_ids=guilds)
@@ -256,7 +257,8 @@ async def listItems(inter, channel: disnake.abc.GuildChannel):
     for mu in messageListURL:
         urlString = f'{urlString}{mu}\n'
     urlString.rstrip()
-    await inter.response.send_message(f"Here are all the Locked Pins in {channel.mention}:\n{urlString}", ephemeral=True)
+    await inter.response.send_message(f"Here are all the Locked Pins in {channel.mention}:\n{urlString}",
+                                      ephemeral=True)
 
 
 @bot.slash_command(description='Adds or removes a message from the Locked Pins.', name='lock', guild_ids=guilds)
@@ -291,23 +293,39 @@ async def padlock(inter, message: disnake.Message):
         await log(f"{inter.author.name} removed a message from the Locked Pins in {message.channel.mention}",
                   guild=guild)
 
+
 @bot.slash_command(description='Shows the help text.', name='help', guild_ids=guilds)
-async def help_command(inter, command:str = ''):
+async def help_command(inter: disnake.CommandInter, command: str = ''):
     commands = {
-        'setloggingchannel':"Specifies a channel to receive logs regarding any bot actions taken. Use /disablelogging if you wish to disable bot logging after setting this up.\nUSAGE: `/setloggingchannel #channel`",
-        'setdefaultbulletin':"Specifies a channel to become the default Bulletin Board channel. When a monitored channel reaches 50 pins, the oldest pin will automatically be reposted here.\nUSAGE: `/setdefaultbulletin #channel`",
-        'register':"Sets a channel to be monitored. When this channel hits 50 pins, the oldest pin will be removed and reposted to either the default Bulletin Board channel or whatever channel you specify.\nUSAGE: `/register #channel #bulletin_channel(optional)`",
-        'lock':"Give it a message URL and it will lock that message to the top of the pin list. If multiple messages are locked, it will ensure they are all at the top of the pin list but it may not be kept in order. Allows up to 10 locked pins per channel, however due to Discord ratelimits, it is recommended to use only 2 per channel.\nTo unlock a message, just use this command again with the URL to that message. (Note: This does not unpin the message.)\nUSAGE: `/lock <message_url>`",
-        'list':"Gives you the URLs of all messages locked to the specified channel\nUSAGE: `/list #channel`",
-        'disablelogging':"Disables bot logging.\nUSAGE: `/disablelogging`"
+        'setloggingchannel': "Specifies a channel to receive logs regarding any bot actions taken. Use /disablelogging if you wish to disable bot logging after setting this up.\nUSAGE: `/setloggingchannel #channel`",
+        'setdefaultbulletin': "Specifies a channel to become the default Bulletin Board channel. When a monitored channel reaches 50 pins, the oldest pin will automatically be reposted here.\nUSAGE: `/setdefaultbulletin #channel`",
+        'register': "Sets a channel to be monitored. When this channel hits 50 pins, the oldest pin will be removed and reposted to either the default Bulletin Board channel or whatever channel you specify.\nUSAGE: `/register #channel #bulletin_channel(optional)`",
+        'lock': "Give it a message URL and it will lock that message to the top of the pin list. If multiple messages are locked, it will ensure they are all at the top of the pin list but it may not be kept in order. Allows up to 10 locked pins per channel, however due to Discord ratelimits, it is recommended to use only 2 per channel.\nTo unlock a message, just use this command again with the URL to that message. (Note: This does not unpin the message.)\nUSAGE: `/lock <message_url>`",
+        'list': "Gives you the URLs of all messages locked to the specified channel\nUSAGE: `/list #channel`",
+        'disablelogging': "Disables bot logging.\nUSAGE: `/disablelogging`"
     }
 
     if command and command.lower() in commands:
         await inter.response.send_message(commands[command.lower()], ephemeral=True)
     elif command == '':
-        await inter.response.send_message("To view help information regarding a command, do /help <command>. All commands are using Discord's new Slash Commands. If you have any issues, please report them on the GitHub page at: <https://github.com/OblivionCreator/Bulletin-Board>\nAvailable commands:\n`SetLoggingChannel\nSetDefaultBulletin\nRegister\nLock\nList`", ephemeral=True)
+        await inter.response.send_message(
+            "To view help information regarding a command, do /help <command>. All commands are using Discord's new Slash Commands. If you have any issues, please report them on the GitHub page at: <https://github.com/OblivionCreator/Bulletin-Board>\nAvailable commands:\n`SetLoggingChannel\nSetDefaultBulletin\nRegister\nLock\nList`",
+            ephemeral=True)
     else:
-        await inter.response.send_message("Sorry, I don't recognise that command. Valid commands:\n`SetLoggingChannel\nSetDefaultBulletin\nRegister\nLock\nList`", ephemeral=True)
+        await inter.response.send_message(
+            "Sorry, I don't recognise that command. Valid commands:\n`SetLoggingChannel\nSetDefaultBulletin\nRegister\nLock\nList`",
+            ephemeral=True)
+
+@commands.is_owner()
+@bot.slash_command(name='dev_info', description='Shows developer info about the bot.', guild_ids=[945920044557299732, 770428394918641694])
+async def dev_info(inter: disnake.CommandInter):
+    member_count = 0
+    guild_names = []
+    for guild in bot.guilds:
+        member_count += guild.member_count
+        guild_names.append(guild.name)
+    await inter.response.send_message(f"I am currently in {len(bot.guilds)} Servers, serving {member_count} members.\nFull list of servers:\n{', '.join(guild_names)}", ephemeral=True)
+
 @bot.listen()
 async def on_slash_command_error(ctx, error):
     if isinstance(error.original, disnake.ext.commands.MessageNotFound):
@@ -363,6 +381,7 @@ async def new_pins(channel, guild, cPinIDs, storedPins, currentPins):
             await message.pin()
     else:
         pass
+
 
 @bot.listen()
 async def on_guild_channel_pins_update(channel, last_pin):
@@ -431,7 +450,7 @@ async def on_guild_channel_pins_update(channel, last_pin):
                         convFile = disnake.File(file)
                         dFiles.append(convFile)
 
-            await webhookManager(pbChannel.id, author, embed=embed, files=dFiles, guild=guild, fileURL = atchURLs)
+            await webhookManager(pbChannel.id, author, embed=embed, files=dFiles, guild=guild, fileURL=atchURLs)
             await oldest_pin.unpin()
             files = glob.glob('/tempfiles/*')
             for f in files:
@@ -441,7 +460,8 @@ async def on_guild_channel_pins_update(channel, last_pin):
     for f in files:
         os.remove(f)
 
+
 with open('token.txt', 'r') as file:
     token = file.read()
-#bot.loop.create_task()
+# bot.loop.create_task()
 bot.run(token)
