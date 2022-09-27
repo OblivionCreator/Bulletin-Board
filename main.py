@@ -28,6 +28,7 @@ import requests
 
 intents = disnake.Intents.default()
 intents.guilds = True
+intents.message_content = True
 bot = commands.Bot(command_prefix='unused',
                    allowed_mentions=disnake.AllowedMentions(users=False, everyone=False, roles=False,
                                                             replied_user=False),
@@ -141,7 +142,7 @@ async def webhookManager(channelID: int, author, embed, files, guild, fileURL):
             return
 
 
-@bot.slash_command(description="Registers a Channel as the default Bulletin Channel", name='SetDefaultBulletin',
+@bot.slash_command(description="Registers a Channel as the default Bulletin Channel", name='setdefaultbulletin',
                    guild_ids=guilds)
 @commands.has_permissions(manage_messages=True)
 async def defaultchannel(inter, bulletin_channel: disnake.abc.GuildChannel):
@@ -153,7 +154,7 @@ async def defaultchannel(inter, bulletin_channel: disnake.abc.GuildChannel):
     await log(f"{inter.author} has set {bulletin_channel.mention} as the default Bulletin Board Channel.", guild)
 
 
-@bot.slash_command(description="Sets the channel where changes are logged.", name='setLoggingChannel', guild_ids=guilds)
+@bot.slash_command(description="Sets the channel where changes are logged.", name='setloggingchannel', guild_ids=guilds)
 @commands.has_permissions(manage_messages=True)
 async def logger(inter, logging_channel: disnake.abc.GuildChannel):
     guild = inter.guild_id
