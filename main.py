@@ -329,15 +329,21 @@ async def dev_info(inter: disnake.CommandInter):
 
 @bot.listen()
 async def on_slash_command_error(ctx, error):
-    if isinstance(error.original, disnake.ext.commands.MessageNotFound):
+
+    if isinstance(error, disnake.ext.commands.MissingPermissions):
+        await ctx.send("The bot has no permissions to read this channel! Please check permissions and try again.")
+        return
+
+    if isinstance(error, disnake.ext.commands.MessageNotFound):
         await ctx.send("That isn't a valid message!", ephemeral=True)
         return
-    if isinstance(error.original, disnake.ext.commands.ChannelNotReadable):
+    if isinstance(error, disnake.ext.commands.ChannelNotReadable):
         await ctx.send("The bot can't read the specified channel! Please check the permissions and try again!",
                        ephemeral=True)
         return
-    await ctx.send(error, ephemeral=True)
 
+    await ctx.send("The bot encountered an unknown error. Please report an issue on Github or contact @oblivioncreator for assistance.")
+    await ctx.send(error, ephemeral=True)
 
 def JsonHandler(channelid, action, data=None, guild=None):
     if not os.path.exists(f'tracked_pins/{guild}'):
