@@ -107,12 +107,21 @@ async def webhookManager(channelID: int, author, embed, files, guild, fileURL):
         if int(w) == channelID:  # Checks if the channel ID has a webhook, if so sets the webhook_url.
             webhook_url = x
 
+    channel = bot.get_channel(channelID)
+    thread = None
+    if isinstance(channel, disnake.Thread):
+        thread = channel
+        channel = thread.parent
+
     async with aiohttp.ClientSession() as session:  # Opens a session to create a webhook.
+
         if webhook_url:
+
+
             webhook = disnake.Webhook.from_url(webhook_url,
                                                session=session)  # Gets the existing webhook if it already exists.
             try:
-                await webhook.send(embed=embed, files=files, username=author.name, avatar_url=author.display_avatar)
+                await webhook.send(embed=embed, files=files, username=author.name, avatar_url=author.display_avatar, thread=thread)
                 return
             except disnake.NotFound as nf:
                 webhook_url = False
@@ -125,12 +134,12 @@ async def webhookManager(channelID: int, author, embed, files, guild, fileURL):
                 await webhook.send(content.rstrip(), embed=embed, username=author.name,
                                    avatar_url=author.display_avatar)
         if not webhook_url:
-            channel = bot.get_channel(channelID)
+
             webhook = await channel.create_webhook(
                 name="Bulletin-Board-Generated Webhook")  # Generates the webhook and stores the webhook item if no webhook is found.
             setConfigItem('WEBHOOKS', str(channelID), webhook.url, guild)
             try:
-                await webhook.send(embed=embed, files=files, username=author.name, avatar_url=author.display_avatar)
+                await webhook.send(embed=embed, files=files, username=author.name, avatar_url=author.display_avatar, thread=thread)
             except Exception as e:
                 content = ''
                 if len(fileURL) > 0:
@@ -329,21 +338,24 @@ async def dev_info(inter: disnake.CommandInter):
 
 @bot.listen()
 async def on_slash_command_error(ctx, error):
+    try:
+        if isinstance(error, disnake.ext.commands.MissingPermissions):
+            await ctx.send("The bot has no permissions to read this channel! Please check permissions and try again.")
+            return
 
-    if isinstance(error, disnake.ext.commands.MissingPermissions):
-        await ctx.send("The bot has no permissions to read this channel! Please check permissions and try again.")
-        return
+        if isinstance(error, disnake.ext.commands.MessageNotFound):
+            await ctx.send("That isn't a valid message!", ephemeral=True)
+            return
+        if isinstance(error, disnake.ext.commands.ChannelNotReadable):
+            await ctx.send("The bot can't read the specified channel! Please check the permissions and try again!",
+                           ephemeral=True)
+            return
+    except Exception as e:
+        print(e)
 
-    if isinstance(error, disnake.ext.commands.MessageNotFound):
-        await ctx.send("That isn't a valid message!", ephemeral=True)
-        return
-    if isinstance(error, disnake.ext.commands.ChannelNotReadable):
-        await ctx.send("The bot can't read the specified channel! Please check the permissions and try again!",
-                       ephemeral=True)
-        return
-
-    await ctx.send("The bot encountered an unknown error. Please report an issue on Github or contact @oblivioncreator for assistance.")
-    await ctx.send(error, ephemeral=True)
+    await ctx.send(
+        "The bot encountered an unknown error. Please report an issue on Github or contact @oblivioncreator for assistance.")
+    await ctx.send((error), ephemeral=True)
 
 def JsonHandler(channelid, action, data=None, guild=None):
     if not os.path.exists(f'tracked_pins/{guild}'):
