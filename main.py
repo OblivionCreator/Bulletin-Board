@@ -122,7 +122,6 @@ async def webhookManager(channelID: int, author, embed, files, guild, fileURL):
                                                session=session)  # Gets the existing webhook if it already exists.
             try:
                 await webhook.send(embed=embed, files=files, username=author.name, avatar_url=author.display_avatar, thread=thread)
-                return
             except disnake.NotFound as nf:
                 webhook_url = False
             except Exception as e:
@@ -130,7 +129,6 @@ async def webhookManager(channelID: int, author, embed, files, guild, fileURL):
                 if len(fileURL) > 0:
                     for url in fileURL:
                         content = f'{content}\n{url}'
-
                 await webhook.send(content.rstrip(), embed=embed, username=author.name,
                                    avatar_url=author.display_avatar)
         if not webhook_url:
@@ -148,7 +146,10 @@ async def webhookManager(channelID: int, author, embed, files, guild, fileURL):
 
                 await webhook.send(content.rstrip(), embed=embed, username=author.name,
                                    avatar_url=author.display_avatar)
-            return
+
+        if thread:
+            await thread.edit(locked=True)
+            print("thread locked")
 
 
 @bot.slash_command(description="Registers a Channel as the default Bulletin Channel", name='setdefaultbulletin',
