@@ -103,15 +103,19 @@ async def getBulletinChannel(guild):
 async def webhookManager(channelID: int, author, embed, files, guild, fileURL):
     webhooks = getAllConfigItems('WEBHOOKS', guild)  # Gets all stored webhook URLs for a guild.
     webhook_url = None
+
+    channel = bot.get_channel(channelID)
+    thread = None
+
+    if isinstance(channel, disnake.Thread):
+        thread = channel
+        channel = thread.parent
+        channelID = channel.id
+
     for w, x in webhooks:
         if int(w) == channelID:  # Checks if the channel ID has a webhook, if so sets the webhook_url.
             webhook_url = x
 
-    channel = bot.get_channel(channelID)
-    thread = None
-    if isinstance(channel, disnake.Thread):
-        thread = channel
-        channel = thread.parent
 
     async with aiohttp.ClientSession() as session:  # Opens a session to create a webhook.
 
