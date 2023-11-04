@@ -1,0 +1,1 @@
+docker run --name bulletin-board -v /d-persistent/bulletin-board:/app/config bulletin-board

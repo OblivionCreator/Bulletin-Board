@@ -40,7 +40,7 @@ guilds = []  # Allowed Guilds. Set to 'None' to make commands Global, or set to 
 def loadConfig(guild):
     config = ConfigParser()
     try:
-        with open(f'guild_configs/{guild}_config.ini', 'x') as file:
+        with open(f'config/guild_configs/{guild}_config.ini', 'x') as file:
             config['GENERIC'] = {'defaultbulletinchannel': 0, 'logging': 0}
             config['MONITORED_CHANNELS'] = {}
             config['WEBHOOKS'] = {}
@@ -49,13 +49,13 @@ def loadConfig(guild):
                 file)  # If no config exists, creates a new config for that guild when it is first loaded. DefaultBulletinChannel and Logging set to 0 by default.
     except:
         pass
-    config.read(f'guild_configs/{guild}_config.ini')
+    config.read(f'config/guild_configs/{guild}_config.ini')
     return config
 
 
 def removeConfigItem(section, item, guild):
     config = loadConfig(guild)
-    with open(f'guild_configs/{guild}_config.ini', 'w') as file:
+    with open(f'config/guild_configs/{guild}_config.ini', 'w') as file:
         config.remove_option(section, item)
         config.write(file)  # Removes an item from the guild's config.ini file.
 
@@ -75,7 +75,7 @@ def getAllConfigItems(section, guild):
 def setConfigItem(section, item, value, guild):
     config = loadConfig(guild)
     config.set(section, item, value)
-    config.write(open(f'guild_configs/{guild}_config.ini', 'w'))
+    config.write(open(f'config/guild_configs/{guild}_config.ini', 'w'))
     return True  # Sets a config item and then returns True if successful.
 
 
@@ -369,19 +369,19 @@ async def on_slash_command_error(ctx, error):
     await ctx.send((error), ephemeral=True)
 
 def JsonHandler(channelid, action, data=None, guild=None):
-    if not os.path.exists(f'tracked_pins/{guild}'):
+    if not os.path.exists(f'config/tracked_pins/{guild}'):
         try:
-            os.makedirs(f'tracked_pins/{guild}')
+            os.makedirs(f'config/tracked_pins/{guild}')
         except OSError as e:
             if e.errno != errno.EEXIST:
                 raise
 
     if action == 'set':
-        with open(f'tracked_pins/{guild}/{channelid}.json', 'w+') as file:
+        with open(f'config/tracked_pins/{guild}/{channelid}.json', 'w+') as file:
             file.write(json.dumps(data))
     elif action == 'get':
         try:
-            with open(f'tracked_pins/{guild}/{channelid}.json', 'r') as file:
+            with open(f'config/tracked_pins/{guild}/{channelid}.json', 'r') as file:
                 data = json.loads(file.read())
                 return data
         except FileNotFoundError:
@@ -474,24 +474,24 @@ async def on_guild_channel_pins_update(channel, last_pin):
                     atchURLs.append(url)
                     filename = f.filename
                     r = requests.get(url, allow_redirects=False)
-                    with open(f'tempfiles/{filename}', 'wb') as file:
+                    with open(f'config/tempfiles/{filename}', 'wb') as file:
                         file.write(r.content)
-                    with open(f'tempfiles/{filename}', 'rb') as file:
+                    with open(f'config/tempfiles/{filename}', 'rb') as file:
                         convFile = disnake.File(file)
                         dFiles.append(convFile)
 
             await webhookManager(pbChannel.id, author, embed=embed, files=dFiles, guild=guild, fileURL=atchURLs)
             await oldest_pin.unpin()
-            files = glob.glob('/tempfiles/*')
+            files = glob.glob('config/tempfiles/*')
             for f in files:
                 os.remove(f)
 
-    files = glob.glob('/tempfiles/*')
+    files = glob.glob('config/tempfiles/*')
     for f in files:
         os.remove(f)
 
 
-with open('token.txt', 'r') as file:
+with open('config/token.txt', 'r') as file:
     token = file.read()
 # bot.loop.create_task()
 bot.run(token)
