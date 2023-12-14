@@ -446,7 +446,7 @@ async def on_guild_channel_pins_update(channel, last_pin):
 
     if channel.id in monitoredChannels:
         pinList = await channel.pins()
-        if len(pinList) >= 50:
+        if len(pinList) >= 1:
             oldest_pin = pinList[len(pinList) - 1]  # Gets the last pin (oldest) Message.
             author = oldest_pin.author
             channel = oldest_pin.channel
@@ -517,8 +517,6 @@ async def on_guild_channel_pins_update(channel, last_pin):
             await webhookManager(pbChannel.id, author, embeds=embeds, files=dFiles, guild=guild, fileURL=atchURLs)
             await oldest_pin.unpin()
             files = glob.glob('config/tempfiles/*')
-            for f in files:
-                os.remove(f)
 
     files = glob.glob('config/tempfiles/*')
     for f in files:
