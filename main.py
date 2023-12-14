@@ -16,6 +16,7 @@
 
 import errno
 import glob
+import io
 import json
 import os
 import warnings
@@ -100,7 +101,7 @@ async def getBulletinChannel(guild):
 
 # Gets the bulletinChannel of a server. Returns 'None' if channel is not found.
 
-async def webhookManager(channelID: int, author, embed, files, guild, fileURL):
+async def webhookManager(channelID: int, author, embeds, files, guild, fileURL):
     webhooks = getAllConfigItems('WEBHOOKS', guild)  # Gets all stored webhook URLs for a guild.
     webhook_url = None
 
@@ -125,10 +126,14 @@ async def webhookManager(channelID: int, author, embed, files, guild, fileURL):
             webhook = disnake.Webhook.from_url(webhook_url,
                                                session=session)  # Gets the existing webhook if it already exists.
             try:
-                await webhook.send(embed=embed, files=files, username=author.name, avatar_url=author.display_avatar, thread=thread)
                 if thread:
+                    await webhook.send(embeds=embeds, files=files, username=author.name,
+                                       avatar_url=author.display_avatar, thread=thread)
                     await thread.edit(locked=True)
                     print("thread locked")
+                else:
+                    await webhook.send(embeds=embeds, files=files, username=author.name,
+                                       avatar_url=author.display_avatar)
                 return
             except disnake.NotFound as nf:
                 webhook_url = False
@@ -137,7 +142,7 @@ async def webhookManager(channelID: int, author, embed, files, guild, fileURL):
                 if len(fileURL) > 0:
                     for url in fileURL:
                         content = f'{content}\n{url}'
-                await webhook.send(content.rstrip(), embed=embed, username=author.name,
+                await webhook.send(content.rstrip(), embeds=embeds, username=author.name,
                                    avatar_url=author.display_avatar)
         if not webhook_url:
 
@@ -145,14 +150,18 @@ async def webhookManager(channelID: int, author, embed, files, guild, fileURL):
                 name="Bulletin-Board-Generated Webhook")  # Generates the webhook and stores the webhook item if no webhook is found.
             setConfigItem('WEBHOOKS', str(channelID), webhook.url, guild)
             try:
-                await webhook.send(embed=embed, files=files, username=author.name, avatar_url=author.display_avatar, thread=thread)
+                if thread:
+                    await webhook.send(embeds=embeds, files=files, username=author.name, avatar_url=author.display_avatar, thread=thread)
+                else:
+                    await webhook.send(embeds=embeds, files=files, username=author.name,
+                                       avatar_url=author.display_avatar)
             except Exception as e:
                 content = ''
                 if len(fileURL) > 0:
                     for url in fileURL:
                         content = f'{content}\n{url}'
 
-                await webhook.send(content.rstrip(), embed=embed, username=author.name,
+                await webhook.send(content.rstrip(), embeds=embeds, username=author.name,
                                    avatar_url=author.display_avatar)
             if thread:
                 await thread.edit(locked=True)
@@ -458,17 +467,42 @@ async def on_guild_channel_pins_update(channel, last_pin):
 
             embed = disnake.Embed(color=0xe100e1, title=f'{author}:', description=f'{oldest_pin.content}',
                                   url=oldest_pin.jump_url)
+
             old_time = oldest_pin.created_at
             strf_old = old_time.strftime("%B %d, %Y")
             embed.set_thumbnail(author.display_avatar)
             embed.set_footer(text=f"Sent by {author} on {strf_old} in #{channel.name}")
 
-            # Attachments - Downloads attachments to tempfiles, uploads them then deletes them.
+            embeds = []
+            embeds.append(embed)
 
             dFiles = None
+
+            for em in oldest_pin.embeds:
+                was_img = False
+                if em.url: # let's get some file chicanery going
+                    if not dFiles:
+                        dFiles = []
+
+                    filename = em.url.split('/')[-1]
+                    if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp', '.gif', '.webm', '.mp4', '.wav', '.ogg', 'mp3', 'gifv', '.mov', '.flac')):
+                        r = requests.get(em.url, allow_redirects=False)
+                        tempfile = io.BytesIO(r.content)
+                        tempfile.name = filename
+                        dFiles.append(disnake.File(tempfile))
+                        was_img = True
+                if not was_img:
+                    embeds.append(em)
+
+            # Attachments - Downloads attachments to tempfiles, uploads them then deletes them.
+
+
             atchURLs = []
             if len(attachments) > 0:
-                dFiles = []
+
+                if not dFiles:
+                    dFiles = []
+
                 for f in attachments:
                     url = f.url
                     atchURLs.append(url)
@@ -480,7 +514,7 @@ async def on_guild_channel_pins_update(channel, last_pin):
                         convFile = disnake.File(file)
                         dFiles.append(convFile)
 
-            await webhookManager(pbChannel.id, author, embed=embed, files=dFiles, guild=guild, fileURL=atchURLs)
+            await webhookManager(pbChannel.id, author, embeds=embeds, files=dFiles, guild=guild, fileURL=atchURLs)
             await oldest_pin.unpin()
             files = glob.glob('config/tempfiles/*')
             for f in files:
