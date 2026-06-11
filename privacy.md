@@ -13,6 +13,7 @@ The Bot stores the following data, for the following reasons:
 - - - Channel IDs for the 'Overflow' Channel and the 'Logging' channel
 - - - Channel IDs for any channels that are being monitored for pin overflow.
 - - - Message IDs (_not_ messages) for messages that should stay locked to the top of the pin list.
+- - - Message IDs (_not_ messages) for messages that are currently pinned in a monitored channel.
 
 - Webhook URLs, used for sending messages in the Overflow channel.
 - - These webhooks are automatically created by the bot, and are stored to avoid hitting ratelimits by creating/destroying webhooks.
